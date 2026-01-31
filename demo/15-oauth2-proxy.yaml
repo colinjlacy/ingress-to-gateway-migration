@@ -1,0 +1,119 @@
+---
+# OAuth2 Proxy for Ingress-NGINX OIDC Authentication
+# This proxy sits in front of protected services and handles OIDC flow with AWS Cognito
+# 
+# Before applying, create the secret with your Cognito credentials:
+# 
+# kubectl create secret generic oauth2-proxy \
+#   --from-literal=client-id=YOUR_CLIENT_ID \
+#   --from-literal=client-secret=YOUR_CLIENT_SECRET \
+#   --from-literal=cookie-secret=$(openssl rand -base64 32 | tr -d /=+ | cut -c -32) \
+#   -n demo-gw-migration
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oauth2-proxy
+  namespace: demo-gw-migration
+data:
+  oauth2_proxy.cfg: |
+    email_domains = [ "*" ]
+    upstreams = [ "file:///dev/null" ]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oauth2-proxy
+  namespace: demo-gw-migration
+  labels:
+    app: oauth2-proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oauth2-proxy
+  template:
+    metadata:
+      labels:
+        app: oauth2-proxy
+    spec:
+      containers:
+      - name: oauth2-proxy
+        image: quay.io/oauth2-proxy/oauth2-proxy:v7.7.1
+        args:
+        - --provider=oidc
+        - --provider-display-name=AWS Cognito
+        - --oidc-issuer-url=$(OIDC_ISSUER_URL)
+        - --email-domain=*
+        - --upstream=file:///dev/null
+        - --http-address=0.0.0.0:4180
+        - --redirect-url=https://nginx.colinjcodesalot.com/oauth2/callback
+        - --cookie-secure=true
+        - --cookie-httponly=true
+        - --cookie-name=_oauth2_proxy
+        - --cookie-expire=4h
+        - --cookie-refresh=1h
+        - --skip-provider-button=true
+        - --whitelist-domain=.colinjcodesalot.com
+        - --set-xauthrequest=true
+        - --set-authorization-header=true
+        - --pass-authorization-header=true
+        - --pass-access-token=true
+        - --pass-user-headers=true
+        env:
+        - name: OIDC_ISSUER_URL
+          value: "https://cognito-idp.us-east-2.amazonaws.com/us-east-2_fBzGKIfpN"
+        - name: OAUTH2_PROXY_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: oauth2-proxy
+              key: client-id
+        - name: OAUTH2_PROXY_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: oauth2-proxy
+              key: client-secret
+        - name: OAUTH2_PROXY_COOKIE_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: oauth2-proxy
+              key: cookie-secret
+        ports:
+        - containerPort: 4180
+          protocol: TCP
+          name: http
+        livenessProbe:
+          httpGet:
+            path: /ping
+            port: 4180
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ping
+            port: 4180
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: oauth2-proxy
+  namespace: demo-gw-migration
+  labels:
+    app: oauth2-proxy
+spec:
+  ports:
+  - port: 4180
+    targetPort: 4180
+    protocol: TCP
+    name: http
+  selector:
+    app: oauth2-proxy
