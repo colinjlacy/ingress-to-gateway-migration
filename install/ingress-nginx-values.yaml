@@ -187,6 +187,11 @@ controller:
     # Disable SSL redirects since we're already on HTTPS  
     force-ssl-redirect: "false"
     ssl-redirect: "false"
+    # Increase buffer sizes for large cookies/headers (OAuth2 tokens)
+    proxy-buffer-size: "16k"
+    proxy-buffers-number: "4"
+    client-header-buffer-size: "16k"
+    large-client-header-buffers: "4 16k"
     # Force the scheme to always be https for all forwarded headers
     # This overrides nginx's detection of the incoming scheme
     http-snippet: |

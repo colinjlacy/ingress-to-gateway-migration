@@ -1,274 +1,310 @@
 ---
-# Details service (single version)
+# Demo Applications for Ingress-to-Gateway Migration
+# 1. go-httpbin (public) - shows HTTP request details
+# 2. go-httpbin (protected) - same app, behind OIDC
+# 3. version-app (v1, v2) - demonstrates progressive routing
+# 4. catalogue-db (MySQL) - demonstrates TCP traffic
+
+# go-httpbin - Public (no authentication)
 apiVersion: v1
 kind: Service
 metadata:
-  name: details
+  name: httpbin-public
   namespace: demo-gw-migration
   labels:
-    app: details
-    service: details
+    app: httpbin-public
 spec:
   ports:
-  - port: 9080
+  - port: 80
+    targetPort: 8080
     name: http
   selector:
-    app: details
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: bookinfo-details
-  namespace: demo-gw-migration
-  labels:
-    account: details
+    app: httpbin-public
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: details-v1
+  name: httpbin-public
   namespace: demo-gw-migration
   labels:
-    app: details
-    version: v1
+    app: httpbin-public
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: details
-      version: v1
+      app: httpbin-public
   template:
     metadata:
       labels:
-        app: details
+        app: httpbin-public
         version: v1
     spec:
-      serviceAccountName: bookinfo-details
       containers:
-      - name: details
-        image: docker.io/istio/examples-bookinfo-details-v1:1.20.3
-        imagePullPolicy: IfNotPresent
+      - name: httpbin
+        image: mccutchen/go-httpbin:v2.14.0
         ports:
-        - containerPort: 9080
+        - containerPort: 8080
+        env:
+        - name: MAX_DURATION
+          value: "60s"
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+        livenessProbe:
+          httpGet:
+            path: /get
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /get
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
 ---
-# Ratings service (single version)
+# go-httpbin - Protected (behind OIDC authentication)
 apiVersion: v1
 kind: Service
 metadata:
-  name: ratings
+  name: httpbin-protected
   namespace: demo-gw-migration
   labels:
-    app: ratings
-    service: ratings
+    app: httpbin-protected
 spec:
   ports:
-  - port: 9080
+  - port: 80
+    targetPort: 8080
     name: http
   selector:
-    app: ratings
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: bookinfo-ratings
-  namespace: demo-gw-migration
-  labels:
-    account: ratings
+    app: httpbin-protected
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ratings-v1
+  name: httpbin-protected
   namespace: demo-gw-migration
   labels:
-    app: ratings
-    version: v1
+    app: httpbin-protected
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: ratings
-      version: v1
+      app: httpbin-protected
   template:
     metadata:
       labels:
-        app: ratings
+        app: httpbin-protected
         version: v1
     spec:
-      serviceAccountName: bookinfo-ratings
       containers:
-      - name: ratings
-        image: docker.io/istio/examples-bookinfo-ratings-v1:1.20.3
-        imagePullPolicy: IfNotPresent
+      - name: httpbin
+        image: mccutchen/go-httpbin:v2.14.0
         ports:
-        - containerPort: 9080
+        - containerPort: 8080
+        env:
+        - name: MAX_DURATION
+          value: "60s"
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+        livenessProbe:
+          httpGet:
+            path: /get
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /get
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
 ---
-# Reviews service - routes to all review versions
+# MySQL Database (for TCP traffic demonstration)
 apiVersion: v1
 kind: Service
 metadata:
-  name: reviews
+  name: catalogue-db
   namespace: demo-gw-migration
   labels:
-    app: reviews
-    service: reviews
+    app: catalogue-db
 spec:
   ports:
-  - port: 9080
-    name: http
+  - port: 3306
+    name: mysql
   selector:
-    app: reviews
+    app: catalogue-db
 ---
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: bookinfo-reviews
-  namespace: demo-gw-migration
-  labels:
-    account: reviews
----
-# Reviews v1 (no stars) - stable version
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: reviews-v1
+  name: catalogue-db
   namespace: demo-gw-migration
   labels:
-    app: reviews
+    app: catalogue-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: catalogue-db
+  template:
+    metadata:
+      labels:
+        app: catalogue-db
+    spec:
+      containers:
+      - name: catalogue-db
+        image: weaveworksdemos/catalogue-db:0.3.0
+        ports:
+        - containerPort: 3306
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: fake_password
+        - name: MYSQL_DATABASE
+          value: socksdb
+---
+# Version App v1 (for progressive routing demo)
+apiVersion: v1
+kind: Service
+metadata:
+  name: version-app
+  namespace: demo-gw-migration
+  labels:
+    app: version-app
+spec:
+  ports:
+  - port: 80
+    targetPort: 8080
+    name: http
+  selector:
+    app: version-app
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: version-app-v1
+  namespace: demo-gw-migration
+  labels:
+    app: version-app
     version: v1
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: reviews
+      app: version-app
       version: v1
   template:
     metadata:
       labels:
-        app: reviews
+        app: version-app
         version: v1
     spec:
-      serviceAccountName: bookinfo-reviews
       containers:
-      - name: reviews
-        image: docker.io/istio/examples-bookinfo-reviews-v1:1.20.3
-        imagePullPolicy: IfNotPresent
+      - name: version-app
+        image: ghcr.io/colinjlacy/ingress-to-gateway-migration/version-app:latest
         ports:
-        - containerPort: 9080
+        - containerPort: 8080
         env:
-        - name: LOG_DIR
-          value: "/tmp/logs"
-        volumeMounts:
-        - name: tmp
-          mountPath: /tmp
-        - name: wlp-output
-          mountPath: /opt/ibm/wlp/output
-      volumes:
-      - name: wlp-output
-        emptyDir: {}
-      - name: tmp
-        emptyDir: {}
+        - name: VERSION
+          value: "v1"
+        - name: PORT
+          value: "8080"
+        - name: DB_HOST
+          value: "catalogue-db"
+        - name: DB_PORT
+          value: "3306"
+        - name: DB_USER
+          value: "root"
+        - name: DB_PASSWORD
+          value: "fake_password"
+        - name: DB_NAME
+          value: "socksdb"
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
 ---
-# Reviews v2 (black stars) - canary version
+# Version App v2 (for progressive routing demo)
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: reviews-v2
+  name: version-app-v2
   namespace: demo-gw-migration
   labels:
-    app: reviews
+    app: version-app
     version: v2
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: reviews
+      app: version-app
       version: v2
   template:
     metadata:
       labels:
-        app: reviews
+        app: version-app
         version: v2
     spec:
-      serviceAccountName: bookinfo-reviews
       containers:
-      - name: reviews
-        image: docker.io/istio/examples-bookinfo-reviews-v2:1.20.3
-        imagePullPolicy: IfNotPresent
+      - name: version-app
+        image: ghcr.io/colinjlacy/ingress-to-gateway-migration/version-app:latest
         ports:
-        - containerPort: 9080
+        - containerPort: 8080
         env:
-        - name: LOG_DIR
-          value: "/tmp/logs"
-        volumeMounts:
-        - name: tmp
-          mountPath: /tmp
-        - name: wlp-output
-          mountPath: /opt/ibm/wlp/output
-      volumes:
-      - name: wlp-output
-        emptyDir: {}
-      - name: tmp
-        emptyDir: {}
----
-# Productpage service - main entry point
-apiVersion: v1
-kind: Service
-metadata:
-  name: productpage
-  namespace: demo-gw-migration
-  labels:
-    app: productpage
-    service: productpage
-spec:
-  ports:
-  - port: 9080
-    name: http
-  selector:
-    app: productpage
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: bookinfo-productpage
-  namespace: demo-gw-migration
-  labels:
-    account: productpage
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: productpage-v1
-  namespace: demo-gw-migration
-  labels:
-    app: productpage
-    version: v1
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: productpage
-      version: v1
-  template:
-    metadata:
-      annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "9080"
-        prometheus.io/path: "/metrics"
-      labels:
-        app: productpage
-        version: v1
-    spec:
-      serviceAccountName: bookinfo-productpage
-      containers:
-      - name: productpage
-        image: docker.io/istio/examples-bookinfo-productpage-v1:1.20.3
-        imagePullPolicy: IfNotPresent
-        ports:
-        - containerPort: 9080
-        volumeMounts:
-        - name: tmp
-          mountPath: /tmp
-      volumes:
-      - name: tmp
-        emptyDir: {}
+        - name: VERSION
+          value: "v2"
+        - name: PORT
+          value: "8080"
+        - name: DB_HOST
+          value: "catalogue-db"
+        - name: DB_PORT
+          value: "3306"
+        - name: DB_USER
+          value: "root"
+        - name: DB_PASSWORD
+          value: "fake_password"
+        - name: DB_NAME
+          value: "socksdb"
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
