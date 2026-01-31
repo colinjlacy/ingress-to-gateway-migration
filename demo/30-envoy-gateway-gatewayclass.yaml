@@ -5,3 +5,8 @@ metadata:
 spec:
   controllerName: gateway.envoyproxy.io/gatewayclass-controller
   description: "Envoy Gateway GatewayClass for migration demo"
+  parametersRef:
+    group: gateway.envoyproxy.io
+    kind: EnvoyProxy
+    name: nlb-proxy-config
+    namespace: demo-gw-migration

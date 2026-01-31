@@ -1,49 +1,80 @@
+---
+# Canary Deployment - Weighted Traffic Splitting
+# This demonstrates progressive traffic migration from v1 to v2
+# 
+# Key Difference from Ingress-NGINX:
+# - Ingress-NGINX requires TWO separate Ingress resources with canary annotations
+# - Gateway API uses ONE HTTPRoute with weighted backendRefs
+# 
+# This is a major improvement: all routing logic is in one place!
+#
+# IMPORTANT: Delete 51-httproute-version-app.yaml before applying this!
+#   kubectl delete httproute version-app-route -n demo-gw-migration
+# Both files match /version which causes conflicts.
+
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: bookinfo-canary
+  name: version-app-canary-route
   namespace: demo-gw-migration
   labels:
     demo: gateway-migration
-    route-type: canary
+    app: version-app
+    deployment: canary
 spec:
   parentRefs:
   - name: demo-gateway
+  
   hostnames:
-  - "app.gateway.colinjcodesalot.com"
+  - "gateway.colinjcodesalot.com"
+  
   rules:
-  # Route to productpage (entry point remains the same)
+  # Weighted traffic split: 90% to v1 (stable), 10% to v2 (canary)
+  # This route takes precedence over the basic version-app-route
   - matches:
     - path:
         type: PathPrefix
-        value: /
-      headers:
-      - name: X-Canary
-        value: "false"
-        type: Exact
+        value: /version
+    backendRefs:
+    # Primary/stable version - 90% of traffic
+    - name: version-app-v1
+      port: 80
+    #   weight: 90
+    # # Canary version - 10% of traffic
+    # - name: version-app-v2
+    #   port: 80
+    #   weight: 10
     filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
     - type: RequestHeaderModifier
       requestHeaderModifier:
         add:
         - name: X-Demo-Edge
           value: envoy-gateway
-    backendRefs:
-    - name: productpage
-      port: 9080
-  # Internal routing: reviews service with traffic split
-  # Note: This demonstrates the canary concept, but the Bookinfo app's
-  # internal calls from productpage to reviews happen directly.
-  # To fully demonstrate the canary in this architecture, you would
-  # typically use a service mesh or have productpage call through the gateway.
-  # For this demo, we're showing the API syntax for weighted routing.
-  - matches:
-    - path:
-        type: PathPrefix
-        value: /reviews
-    backendRefs:
-    - name: reviews
-      port: 9080
-      weight: 90
-    - name: reviews-v2
-      port: 9080
-      weight: 10
+        - name: X-Canary-Enabled
+          value: "true"
+        - name: X-Canary-Weight
+          value: "10"
+
+---
+# Comparison Notes:
+#
+# INGRESS-NGINX APPROACH (2 resources):
+#   1. Primary Ingress:
+#      - path: /version -> version-app-v1
+#   
+#   2. Canary Ingress (separate resource):
+#      - annotations:
+#          nginx.ingress.kubernetes.io/canary: "true"
+#          nginx.ingress.kubernetes.io/canary-weight: "10"
+#      - path: /version -> version-app-v2
+#
+# GATEWAY API APPROACH (1 resource):
+#   - Single HTTPRoute with weighted backendRefs
+#   - All routing logic in one place
+#   - Easier to understand and maintain
+#   - Native Kubernetes API (no vendor-specific annotations)

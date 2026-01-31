@@ -1,0 +1,96 @@
+---
+# Protected Routes with OIDC Authentication
+# This file demonstrates OAuth2/OIDC authentication using oauth2-proxy
+# and Envoy Gateway's SecurityPolicy for external authentication
+
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: httpbin-protected-route
+  namespace: demo-gw-migration
+  labels:
+    demo: gateway-migration
+    access: protected
+    auth: oidc
+spec:
+  parentRefs:
+  - name: demo-gateway
+  
+  hostnames:
+  - "gateway.colinjcodesalot.com"
+  
+  rules:
+  # Protected endpoint - requires OIDC authentication
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /protected
+    backendRefs:
+    - name: httpbin-protected
+      port: 80
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        add:
+        - name: X-Demo-Edge
+          value: envoy-gateway
+        - name: X-Protected
+          value: "true"
+
+---
+# SecurityPolicy for OIDC Authentication
+# Envoy Gateway native OIDC support - no oauth2-proxy needed!
+#
+# To get the required values from OpenTofu:
+#   cd eks-setup/tofu-eks/
+#   export COGNITO_ISSUER=$(tofu output -raw cognito_issuer_url)
+#   export CLIENT_ID=$(tofu output -raw cognito_envoy_gateway_client_id)
+#   export CLIENT_SECRET=$(tofu output -raw cognito_envoy_gateway_client_secret)
+#
+# Create the Kubernetes secret:
+#   kubectl create secret generic envoy-gateway-oidc-client-secret \
+#     --from-literal=client-secret=$CLIENT_SECRET \
+#     -n demo-gw-migration
+#
+# Then update the issuer and clientID in this file with the values from OpenTofu.
+
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: oidc-auth-policy
+  namespace: demo-gw-migration
+  labels:
+    demo: gateway-migration
+    auth: oidc
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: httpbin-protected-route
+  
+  oidc:
+    provider:
+      # AWS Cognito issuer URL
+      # Get from: tofu output -raw cognito_issuer_url
+      # issuer: "https://cognito-idp.us-east-2.amazonaws.com/REPLACE_WITH_USER_POOL_ID"
+      issuer: "https://cognito-idp.us-east-2.amazonaws.com/us-east-2_fBzGKIfpN"
+
+    # Cognito App Client ID for Envoy Gateway
+    # Get from: tofu output -raw cognito_envoy_gateway_client_id
+    # clientID: "REPLACE_WITH_CLIENT_ID"
+    clientID: "7e7hp6jpp79nv23r0tbsh864bt"
+    
+    # Kubernetes secret containing the client secret
+    clientSecret:
+      name: envoy-gateway-oidc-client-secret
+    forwardAccessToken: true
+    # OAuth2 callback URL - must match one registered in Cognito
+    redirectURL: "https://gateway.colinjcodesalot.com/protected/oauth2/callback"
+    
+    # Logout path
+    logoutPath: "/protected/logout"

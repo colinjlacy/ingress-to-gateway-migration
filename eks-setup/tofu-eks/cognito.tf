@@ -120,14 +120,14 @@ resource "aws_cognito_user_pool_client" "envoy_gateway" {
   allowed_oauth_flows_user_pool_client = true
   allowed_oauth_scopes                 = ["email", "openid", "profile"]
 
-  # Callback URLs - update these with your actual domain
+  # Callback URLs for Envoy Gateway native OIDC
   callback_urls = [
-    "https://envoy.colinjcodesalot.com/oauth2/callback",
+    "https://gateway.colinjcodesalot.com/protected/oauth2/callback",
     "http://localhost:4180/oauth2/callback" # For local testing
   ]
 
   logout_urls = [
-    "https://envoy.colinjcodesalot.com/",
+    "https://gateway.colinjcodesalot.com/protected/logout",
     "http://localhost:4180/"
   ]
 

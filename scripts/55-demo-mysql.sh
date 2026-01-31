@@ -7,35 +7,42 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/00-set-env.sh"
 
-echo ""
-log_info "=========================================="
-log_info "MySQL TCP Connection Test"
-log_info "=========================================="
-echo ""
+# Parse arguments
+TARGET="${1:-nginx}"
+DOMAIN="${2:-colinjcodesalot.com}"
 
-# Get the LoadBalancer hostname for ingress-nginx
-log_info "Getting ingress-nginx LoadBalancer address..."
-LB_HOSTNAME=$(kubectl get svc ingress-nginx-controller -n ${NGINX_NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
-
-if [ -z "$LB_HOSTNAME" ]; then
-    log_error "Could not get LoadBalancer hostname"
-    echo "Troubleshooting:"
-    echo "  1. Check if ingress-nginx is installed: kubectl get svc -n ${NGINX_NAMESPACE}"
-    echo "  2. Wait for LoadBalancer provisioning: kubectl get svc ingress-nginx-controller -n ${NGINX_NAMESPACE} -w"
+if [ "$TARGET" != "nginx" ] && [ "$TARGET" != "gateway" ]; then
+    log_error "Invalid target: $TARGET"
+    echo "Usage: $0 [nginx|gateway] [domain]"
+    echo "  default target: nginx"
+    echo "  default domain: colinjcodesalot.com"
     exit 1
 fi
 
-log_success "LoadBalancer: ${LB_HOSTNAME}"
+# Set hostname based on target
+if [ "$TARGET" == "nginx" ]; then
+    HOSTNAME="nginx.${DOMAIN}"
+    IMPL="Ingress-NGINX"
+else
+    HOSTNAME="gateway.${DOMAIN}"
+    IMPL="Envoy Gateway"
+fi
+
+echo ""
+log_info "=========================================="
+log_info "MySQL TCP Connection Test - ${IMPL}"
+log_info "=========================================="
 echo ""
 
 # MySQL connection details
-MYSQL_HOST="${LB_HOSTNAME}"
+MYSQL_HOST="${HOSTNAME}"
 MYSQL_PORT="3306"
 MYSQL_USER="root"
 MYSQL_PASSWORD="fake_password"
 MYSQL_DATABASE="socksdb"
 
-log_info "Connection details:"
+log_info "Testing connection through ${IMPL}"
+echo "Connection details:"
 echo "  Host: ${MYSQL_HOST}"
 echo "  Port: ${MYSQL_PORT}"
 echo "  User: ${MYSQL_USER}"
@@ -80,9 +87,18 @@ else
     log_error "Connection failed"
     echo ""
     echo "Troubleshooting:"
-    echo "  1. Verify TCP service is configured: helm get values ingress-nginx -n ${NGINX_NAMESPACE}"
-    echo "  2. Check NLB security groups allow port 3306"
-    echo "  3. Verify catalogue-db pod is running: kubectl get pods -n demo-gw-migration -l app=catalogue-db"
+    if [ "$TARGET" == "nginx" ]; then
+        echo "  1. Verify TCP service is configured: helm get values ingress-nginx -n ${NGINX_NAMESPACE}"
+        echo "  2. Check DNS: dig ${MYSQL_HOST}"
+        echo "  3. Check NLB security groups allow port 3306"
+        echo "  4. Verify catalogue-db pod is running: kubectl get pods -n demo-gw-migration -l app=catalogue-db"
+    else
+        echo "  1. Verify TCPRoute is deployed: kubectl get tcproute mysql-tcp-route -n demo-gw-migration"
+        echo "  2. Check Gateway listener: kubectl get gateway demo-gateway -n demo-gw-migration -o yaml"
+        echo "  3. Check DNS: dig ${MYSQL_HOST}"
+        echo "  4. Check NLB security groups allow port 3306"
+        echo "  5. Verify catalogue-db pod is running: kubectl get pods -n demo-gw-migration -l app=catalogue-db"
+    fi
     exit 1
 fi
 

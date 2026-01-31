@@ -2,7 +2,7 @@ apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyProxy
 metadata:
   name: nlb-proxy-config
-  namespace: envoy-gateway-system
+  namespace: demo-gw-migration
 spec:
   provider:
     type: Kubernetes
@@ -17,14 +17,13 @@ spec:
           # REQUIRED: Internet-facing load balancer (change to "internal" for private)
           service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
           
-          # REQUIRED: ACM certificate ARN for TLS termination at NLB
-          # PLACEHOLDER - Replace with your actual ACM certificate ARN
-          service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "PLACEHOLDER_ACM_CERT_ARN"
+          # ACM certificate ARN for TLS termination at NLB
+          service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "arn:aws:acm:us-east-2:391633600189:certificate/62c55457-4166-492d-81c7-ff41df21e000"
           
-          # REQUIRED: Enable TLS listener on port 443
+          # Enable TLS listener on port 443 (NLB decrypts and forwards as TCP)
           service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "443"
           
-          # Backend protocol - use "tcp" for NLB
+          # Backend protocol - TCP (NLB forwards decrypted traffic as TCP)
           service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "tcp"
           
           # Enable cross-zone load balancing for better availability

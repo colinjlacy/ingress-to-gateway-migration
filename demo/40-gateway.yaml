@@ -11,30 +11,31 @@ metadata:
     gateway.envoyproxy.io/custom-annotation: "demo-value"
 spec:
   gatewayClassName: eg
-  # CRITICAL: Reference the EnvoyProxy configuration that defines NLB settings
-  infrastructure:
-    parametersRef:
-      group: gateway.envoyproxy.io
-      kind: EnvoyProxy
-      name: nlb-proxy-config
-      namespace: envoy-gateway-system
   listeners:
+  # HTTP listener (port 80)
   - name: http
     protocol: HTTP
     port: 80
     allowedRoutes:
       namespaces:
         from: Same
-  # OPTIONAL: Add HTTPS listener if you want TLS termination in-cluster
-  # Note: For this demo, TLS terminates at NLB using ACM
-  # - name: https
-  #   protocol: HTTPS
-  #   port: 443
-  #   tls:
-  #     mode: Terminate
-  #     certificateRefs:
-  #     - name: gateway-tls-cert
-  #       kind: Secret
-  #   allowedRoutes:
-  #     namespaces:
-  #       from: Same
+  
+  # HTTPS listener (port 443)
+  # NLB terminates TLS using ACM, then forwards as HTTP to Envoy
+  # So this is HTTP protocol, even though external clients use HTTPS
+  - name: https
+    protocol: HTTP
+    port: 443
+    allowedRoutes:
+      namespaces:
+        from: Same
+  
+  # TCP listener for MySQL (port 3306)
+  - name: mysql
+    protocol: TCP
+    port: 3306
+    allowedRoutes:
+      kinds:
+      - kind: TCPRoute
+      namespaces:
+        from: Same
