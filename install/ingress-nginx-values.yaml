@@ -142,9 +142,9 @@ controller:
       # service.beta.kubernetes.io/aws-load-balancer-attributes: "deletion_protection.enabled=false,load_balancing.cross_zone.enabled=true"
 
     # External traffic policy
-    # - "Cluster" (default): Better load distribution, loses client source IP
-    # - "Local": Preserves client source IP, but may have uneven distribution
-    externalTrafficPolicy: Cluster
+    # - "Cluster" (default): Better load distribution, loses client source IP, registers ALL nodes as targets
+    # - "Local": Preserves client source IP, only registers nodes with pods as targets
+    externalTrafficPolicy: Local
     
     # OPTIONAL: Session affinity for sticky sessions
     # sessionAffinity: ClientIP
@@ -177,21 +177,25 @@ controller:
   
   # OPTIONAL: Priority class for pod scheduling
   # priorityClassName: system-cluster-critical
-
-  # Proxy headers for all requests
-  # Since NLB terminates TLS, we need to tell backends the original request was HTTPS
-  proxySetHeaders:
-    X-Forwarded-Proto: "https"
   
   # ConfigMap entries for TLS termination at NLB
   config:
     # NLBs operate at Layer 4 and don't add X-Forwarded-Proto headers
     # Since ALL traffic comes through NLB with TLS termination,
-    # use proxySetHeaders above to set X-Forwarded-Proto globally
+    # force nginx to always use https scheme
     use-proxy-protocol: "false"
     # Disable SSL redirects since we're already on HTTPS  
     force-ssl-redirect: "false"
     ssl-redirect: "false"
+    # Force the scheme to always be https for all forwarded headers
+    # This overrides nginx's detection of the incoming scheme
+    http-snippet: |
+      map $http_x_forwarded_proto $pass_access_scheme {
+        default "https";
+      }
+      map $http_x_forwarded_proto $pass_port {
+        default "443";
+      }
 
 
 # Default backend (serves 404 for unmapped routes)
