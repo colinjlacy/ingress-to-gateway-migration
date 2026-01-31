@@ -10,8 +10,8 @@ export DOMAIN="colinjcodesalot.com"
 
 # Demo Configuration
 export DEMO_NAMESPACE="demo-gw-migration"
-export NGINX_HOSTNAME="app.nginx.${DOMAIN}"
-export GATEWAY_HOSTNAME="app.gateway.${DOMAIN}"
+export NGINX_HOSTNAME="nginx.${DOMAIN}"
+export GATEWAY_HOSTNAME="gateway.${DOMAIN}"
 
 # ACM Certificate ARN - REPLACE THIS WITH YOUR ACTUAL ARN
 export ACM_CERT_ARN="PLACEHOLDER_ACM_CERT_ARN"
