@@ -203,6 +203,11 @@ controller:
       }
 
 
+# TCP services configuration for non-HTTP traffic
+# Expose MySQL database on external port 3306
+tcp:
+  3306: "demo-gw-migration/catalogue-db:3306"
+
 # Default backend (serves 404 for unmapped routes)
 defaultBackend:
   enabled: true
