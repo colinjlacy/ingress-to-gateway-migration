@@ -1,0 +1,31 @@
+# Cleanup script for the demo
+# This will delete all resources in the demo namespace
+
+---
+# Delete the demo namespace (cascades to all resources within)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: demo-gw-migration
+  finalizers: []
+$patch: delete
+
+# Note: To clean up completely, you should also:
+# 1. Uninstall ingress-nginx:
+#    helm uninstall ingress-nginx -n ingress-nginx
+#    kubectl delete ns ingress-nginx
+#
+# 2. Uninstall Envoy Gateway:
+#    helm uninstall envoy-gateway -n envoy-gateway-system
+#    kubectl delete ns envoy-gateway-system
+#
+# 3. Delete Gateway API CRDs (if you want to start completely fresh):
+#    kubectl delete crd gatewayclasses.gateway.networking.k8s.io
+#    kubectl delete crd gateways.gateway.networking.k8s.io
+#    kubectl delete crd httproutes.gateway.networking.k8s.io
+#    kubectl delete crd referencegrants.gateway.networking.k8s.io
+#
+# 4. Clean up AWS resources (if desired):
+#    - Route53 DNS records will remain (manual deletion required)
+#    - NLBs will be automatically deleted when Services are removed
+#    - ACM certificate will remain (manual deletion required)

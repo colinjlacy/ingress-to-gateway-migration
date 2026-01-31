@@ -1,0 +1,319 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: bookinfo-ingress
+  namespace: demo-gw-migration
+  annotations:
+    
+    # ============================================
+    # Per-path overrides (gets messy quickly!)
+    # ============================================
+    
+    # NOTE: These annotations apply to ALL paths in this Ingress
+    # Individual path customization requires separate Ingress resources
+    # or complex configuration-snippet hacks
+    
+    # Force SSL redirect for all paths
+    # TODO: Product team wants this disabled for /health - needs separate Ingress
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+    
+    # Respect X-Forwarded-Proto header from load balancer
+    # Note: X-Forwarded-Proto is set globally in the controller config
+    # since NLBs don't add this header (Layer 4)
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    
+    # Global timeout settings
+    # WARNING: Reviews team needs 60s, but Details team complains about slow clients
+    # Compromise set to 45s - neither team is happy
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "45"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "45"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "45"
+    
+    # Rate limiting - added by SRE team after incident-2847
+    # Reviews team requested exemption but annotations don't support per-path limits
+    nginx.ingress.kubernetes.io/limit-rps: "100"
+    nginx.ingress.kubernetes.io/limit-rpm: "5000"
+    
+    # CORS configuration - added for frontend team
+    # TODO: Ratings team doesn't need CORS, but it applies to everything now
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://bookinfo-frontend.example.com,https://partner-app.example.com"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
+    
+    # Proxy buffer settings - increased for Reviews team's large payloads
+    # Details team filed bug about memory usage, but no per-path option exists
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "32k"
+    nginx.ingress.kubernetes.io/proxy-buffers-number: "8"
+    
+    # Rewrite rules using regex - FRAGILE: be careful editing
+    # Added by Platform team for legacy URL support
+    # nginx.ingress.kubernetes.io/rewrite-target: /$2
+    
+    # Client body size - set for file uploads on Reviews endpoints
+    # TODO: Product team says this is too large for other services (security concern)
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    
+    # Custom auth configuration - added for Ratings team
+    # WARNING: Do not modify without testing Reviews endpoints!
+    # nginx.ingress.kubernetes.io/auth-url: "http://auth-service.auth-system.svc.cluster.local/verify"
+    # nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-User,X-Auth-Role"
+    
+    # Whitelist configuration - requested by Security team for /admin paths
+    # TODO: Make this path-specific when NGINX supports it better
+    # nginx.ingress.kubernetes.io/whitelist-source-range: "10.0.0.0/8,172.16.0.0/12"
+    
+    # Session affinity - enabled by Product team for Reviews
+    # Side effect: all services now have sticky sessions (not always desired)
+    nginx.ingress.kubernetes.io/affinity: "cookie"
+    nginx.ingress.kubernetes.io/affinity-mode: "persistent"
+    nginx.ingress.kubernetes.io/session-cookie-name: "bookinfo-sticky"
+    nginx.ingress.kubernetes.io/session-cookie-max-age: "3600"
+    
+    # ============================================
+    # AWS Integration Annotations (OPTIONAL)
+    # ============================================
+    # These CAN be placed here but are better in Helm values
+    # Kept here for reference/override capability
+    
+    # OPTIONAL: Backend protocol (if your service uses HTTPS)
+    # nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    
+    # ============================================
+    # Metadata for ownership and tracking
+    # ============================================
+    # Added by Platform team for tracking
+    # demo/project: "gateway-migration"
+    # demo/environment: "webinar"
+    # demo/last-modified-by: "platform-team"
+    # demo/last-modified-date: "2026-01-15"
+    # demo/jira-ticket: "PLAT-1234"
+
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: nginx.colinjcodesalot.com
+    http:
+      paths:
+      # ============================================
+      # Main Application - Product Team
+      # Owner: product-team@example.com
+      # Last modified: 2025-12-01
+      # ============================================
+      
+      # Specific productpage paths (must come before catch-all)
+      - path: /static
+        pathType: Prefix
+        backend:
+          service:
+            name: productpage
+            port:
+              number: 9080
+      
+      # - path: /productpage
+      #   pathType: Prefix
+      #   backend:
+      #     service:
+      #       name: productpage
+      #       port:
+      #         number: 9080
+      
+      # Catch-all for root and other paths
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: productpage
+            port:
+              number: 9080
+      
+      # ============================================
+      # Details Service - Catalog Team
+      # Owner: catalog-team@example.com
+      # Last modified: 2025-11-15
+      # NOTES: Needs lower timeout but can't override global setting
+      # ============================================
+      - path: /details
+        pathType: Prefix
+        backend:
+          service:
+            name: details
+            port:
+              number: 9080
+      
+      # Legacy path - DO NOT REMOVE (used by mobile app v1.x)
+      # See: JIRA-856 for context
+      - path: /api/v1/details
+        pathType: Prefix
+        backend:
+          service:
+            name: details
+            port:
+              number: 9080
+      
+      # Internal details health check (requested by SRE team)
+      # TODO: Should this be exempt from rate limiting? Currently blocked during incidents
+      - path: /details/health
+        pathType: Exact
+        backend:
+          service:
+            name: details
+            port:
+              number: 9080
+      
+      # ============================================
+      # Reviews Service - Reviews Team
+      # Owner: reviews-team@example.com  
+      # Last modified: 2026-01-10
+      # NOTES: High traffic service, needs rate limiting per-user (not possible with current setup)
+      # ============================================
+      - path: /reviews
+        pathType: Prefix
+        backend:
+          service:
+            name: reviews
+            port:
+              number: 9080
+      
+      
+      # Legacy reviews path (partner integrations depend on this)
+      # CRITICAL: Do not remove - contract with PartnerCo until 2027
+      - path: /api/v1/reviews
+        pathType: Prefix
+        backend:
+          service:
+            name: reviews
+            port:
+              number: 9080
+      
+      # Reviews submission endpoint - POST only
+      # NOTE: Can't enforce HTTP method at Ingress level, handled by app
+      - path: /reviews/submit
+        pathType: Exact
+        backend:
+          service:
+            name: reviews
+            port:
+              number: 9080
+      
+      # ============================================
+      # Ratings Service - Analytics Team
+      # Owner: analytics-team@example.com
+      # Last modified: 2025-10-30
+      # NOTES: Low-traffic service but critical for business metrics
+      # WARNING: Session affinity causes issues here (ratings should be stateless)
+      # ============================================
+      - path: /ratings
+        pathType: Prefix
+        backend:
+          service:
+            name: ratings
+            port:
+              number: 9080
+      
+      # Ratings API v2 - new endpoint with improved schema
+      # Added: 2025-10-30
+      # TODO: Migrate clients from /ratings to /api/v2/ratings
+      - path: /api/v2/ratings
+        pathType: Prefix
+        backend:
+          service:
+            name: ratings
+            port:
+              number: 9080
+      
+      # Ratings health and metrics (monitoring system uses this)
+      - path: /ratings/health
+        pathType: Exact
+        backend:
+          service:
+            name: ratings
+            port:
+              number: 9080
+      
+      # Ratings webhook endpoint (receives events from external system)
+      # SECURITY: Should have IP whitelist but applies to entire Ingress
+      - path: /ratings/webhook
+        pathType: Exact
+        backend:
+          service:
+            name: ratings
+            port:
+              number: 9080
+      
+      # ============================================
+      # Admin and Internal Paths
+      # Owner: platform-team@example.com
+      # ============================================
+      
+      # Health check endpoint (used by AWS NLB health checks)
+      # CRITICAL: Must return 200 for load balancer to route traffic
+      # TODO: Make this return aggregated health of all services
+      - path: /health
+        pathType: Exact
+        backend:
+          service:
+            name: productpage
+            port:
+              number: 9080
+      
+      # Metrics endpoint for Prometheus (scraping every 30s)
+      # NOTE: Should be on separate Ingress with different rate limits
+      - path: /metrics
+        pathType: Exact
+        backend:
+          service:
+            name: productpage
+            port:
+              number: 9080
+  
+  # ============================================
+  # TLS Configuration
+  # ============================================
+  # OPTIONAL: TLS configuration for in-cluster termination
+  # Note: This demo uses ACM at NLB, so this is commented out
+  # Uncomment if using cert-manager or Kubernetes Secrets for TLS
+  # 
+  # tls:
+  # - hosts:
+  #   - app.nginx.colinjcodesalot.com
+  #   secretName: nginx-tls-secret  # Must be a kubernetes.io/tls Secret
+
+# ============================================
+# KNOWN ISSUES AND TECHNICAL DEBT
+# ============================================
+# 
+# 1. Global annotations affect all paths - can't customize per-service
+#    - Workaround: Create multiple Ingress resources (maintenance burden)
+# 
+# 2. Timeout settings are a compromise between teams' needs
+#    - Reviews team wants 60s
+#    - Details team wants 15s
+#    - Current: 45s (nobody is happy)
+# 
+# 3. CORS enabled for all endpoints even though only frontend needs it
+#    - Security team flagged as potential issue
+# 
+# 4. Session affinity causes issues for stateless services
+#    - Ratings endpoints should not have sticky sessions
+#    - Can't disable per-path
+# 
+# 5. Rate limiting applies globally
+#    - Health checks and metrics get rate limited during traffic spikes
+#    - Need per-path rate limits (not supported)
+# 
+# 6. Configuration has grown organically - difficult to understand ownership
+#    - Multiple teams adding annotations over time
+#    - Comments are best-effort, not always accurate
+#    - No clear approval process for changes
+# 
+# 7. Testing changes is risky
+#    - Annotation changes affect all paths
+#    - No dry-run mode for Ingress updates
+#    - Prod incidents: INCIDENT-2847, INCIDENT-3012, INCIDENT-3156
+# 
+# 8. Legacy paths accumulate forever
+#    - Can't remove due to unknown dependencies
+#    - "Someone might be using it"
+# 
+# RECOMMENDATION: Migrate to Gateway API for better separation of concerns

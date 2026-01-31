@@ -1,0 +1,169 @@
+# Helm values for Envoy Gateway on EKS with NLB + ACM TLS
+#
+# Install command:
+# helm upgrade --install envoy-gateway oci://docker.io/envoyproxy/gateway-helm \
+#   --namespace envoy-gateway-system --create-namespace \
+#   --values install/envoy-gateway-values.yaml
+#
+# IMPORTANT NOTE:
+# These Helm values configure the controller. The data plane Service
+# is configured via the EnvoyProxy resource (demo/35-envoy-proxy-config.yaml)
+# which is referenced by the Gateway resource.
+#
+# BEFORE INSTALLING:
+# 1. Review the EnvoyProxy configuration in demo/35-envoy-proxy-config.yaml
+# 2. Replace PLACEHOLDER_ACM_CERT_ARN with your actual ACM certificate ARN
+# 3. Optionally configure subnet/security group settings
+
+# Envoy Gateway configuration
+config:
+  envoyGateway:
+    gateway:
+      controllerName: gateway.envoyproxy.io/gatewayclass-controller
+    
+    # OPTIONAL: Logging configuration
+    # logging:
+    #   level:
+    #     default: info
+    
+    # OPTIONAL: Extension manager configuration
+    # extensionManager:
+    #   hooks:
+    #     xdsTranslator:
+    #       post:
+    #       - name: my-extension
+    #         namespace: envoy-gateway-system
+    
+    # OPTIONAL: Rate limit service configuration
+    # rateLimit:
+    #   backend:
+    #     type: Redis
+    #     redis:
+    #       url: redis.redis-system.svc.cluster.local:6379
+    
+    provider:
+      type: Kubernetes
+      kubernetes:
+        # OPTIONAL: Override default watch namespaces
+        # By default, watches all namespaces
+        # watch:
+        #   type: Namespaces
+        #   namespaces:
+        #   - demo-gw-migration
+        #   - production
+        
+        # OPTIONAL: Deployment override for data plane
+        # This is an alternative to using EnvoyProxy resource
+        # In this demo, we use EnvoyProxy resource for more flexibility
+        # envoyDeployment:
+        #   replicas: 2
+        #   pod:
+        #     annotations:
+        #       prometheus.io/scrape: "true"
+        
+        # OPTIONAL: Service override for data plane
+        # NOTE: In this demo, Service configuration is in EnvoyProxy resource
+        # This is commented out - use demo/35-envoy-proxy-config.yaml instead
+        # envoyService:
+        #   type: LoadBalancer
+        #   annotations:
+        #     service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+        #     # ... other annotations
+
+# Deployment configuration for the Envoy Gateway controller
+deployment:
+  replicas: 1
+  
+  envoyGateway:
+    # Controller image configuration
+    # image:
+    #   repository: docker.io/envoyproxy/gateway
+    #   tag: latest
+    #   pullPolicy: IfNotPresent
+    
+    # Resource limits for controller
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    
+    # OPTIONAL: Security context
+    # securityContext:
+    #   runAsNonRoot: true
+    #   runAsUser: 65532
+    #   capabilities:
+    #     drop:
+    #     - ALL
+  
+  # OPTIONAL: Pod annotations
+  # pod:
+  #   annotations:
+  #     prometheus.io/scrape: "true"
+  #     prometheus.io/port: "8080"
+  
+  # OPTIONAL: Node selector
+  # nodeSelector:
+  #   workload-type: control-plane
+  
+  # OPTIONAL: Tolerations
+  # tolerations:
+  # - key: "control-plane"
+  #   operator: "Equal"
+  #   value: "true"
+  #   effect: "NoSchedule"
+  
+  # OPTIONAL: Affinity
+  # affinity:
+  #   podAntiAffinity:
+  #     preferredDuringSchedulingIgnoredDuringExecution:
+  #     - weight: 100
+  #       podAffinityTerm:
+  #         labelSelector:
+  #           matchLabels:
+  #             app.kubernetes.io/name: envoy-gateway
+  #         topologyKey: kubernetes.io/hostname
+
+# Create default GatewayClass
+# Set to false if you want to create GatewayClass manually
+createDefaultGatewayClass: true
+
+# OPTIONAL: Custom GatewayClass parameters
+# gatewayClass:
+#   name: eg
+#   controllerName: gateway.envoyproxy.io/gatewayclass-controller
+
+# OPTIONAL: Service account configuration
+# serviceAccount:
+#   create: true
+#   annotations:
+#     eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT:role/envoy-gateway-role
+#   name: envoy-gateway
+
+# OPTIONAL: RBAC configuration
+# rbac:
+#   create: true
+
+# OPTIONAL: Enable cert-manager for webhook certificates
+# certManager:
+#   enabled: false
+
+# ============================================
+# AWS Integration Notes
+# ============================================
+#
+# The actual NLB configuration happens in the EnvoyProxy resource
+# (demo/35-envoy-proxy-config.yaml), not in these Helm values.
+#
+# Key AWS integration points:
+# 1. ACM Certificate: Configured in EnvoyProxy resource
+# 2. Service Annotations: Configured in EnvoyProxy resource
+# 3. Subnets/Security Groups: Configured in EnvoyProxy resource
+# 4. IAM Roles: Optionally via serviceAccount annotations above
+#
+# This separation provides flexibility:
+# - Multiple Gateways can use different EnvoyProxy configs
+# - EnvoyProxy configs can be updated without Helm operations
+# - Gateway-specific NLB settings (subnets, SGs, etc.)

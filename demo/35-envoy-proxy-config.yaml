@@ -1,0 +1,136 @@
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: nlb-proxy-config
+  namespace: envoy-gateway-system
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyService:
+        type: LoadBalancer
+        # AWS-specific annotations for NLB provisioning
+        annotations:
+          # REQUIRED: Use Network Load Balancer instead of Classic Load Balancer
+          service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+          
+          # REQUIRED: Internet-facing load balancer (change to "internal" for private)
+          service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+          
+          # REQUIRED: ACM certificate ARN for TLS termination at NLB
+          # PLACEHOLDER - Replace with your actual ACM certificate ARN
+          service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "PLACEHOLDER_ACM_CERT_ARN"
+          
+          # REQUIRED: Enable TLS listener on port 443
+          service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "443"
+          
+          # Backend protocol - use "tcp" for NLB
+          service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "tcp"
+          
+          # Enable cross-zone load balancing for better availability
+          service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+          
+          # OPTIONAL: Specify subnets for the NLB
+          # Uncomment and provide subnet IDs if you want to control NLB placement
+          # service.beta.kubernetes.io/aws-load-balancer-subnets: "subnet-xxxxx,subnet-yyyyy"
+          
+          # OPTIONAL: Additional security groups for the NLB
+          # Uncomment and provide security group IDs if needed
+          # service.beta.kubernetes.io/aws-load-balancer-security-groups: "sg-xxxxx,sg-yyyyy"
+          
+          # OPTIONAL: Control how security groups are managed
+          # Set to "true" to only use explicitly specified security groups
+          # service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules: "false"
+          
+          # OPTIONAL: Target group attributes
+          # Useful for health check tuning and connection draining
+          # service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: "deregistration_delay.timeout_seconds=30"
+          
+          # OPTIONAL: Health check configuration
+          # service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: "HTTP"
+          # service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: "10254"
+          # service.beta.kubernetes.io/aws-load-balancer-healthcheck-path: "/healthz"
+          # service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval: "10"
+          # service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout: "5"
+          # service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold: "2"
+          # service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold: "2"
+          
+          # OPTIONAL: Enable NLB access logs (requires S3 bucket)
+          # service.beta.kubernetes.io/aws-load-balancer-access-log-enabled: "true"
+          # service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-name: "my-bucket"
+          # service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-prefix: "nlb-logs"
+          
+          # Resource tags for cost tracking and organization
+          service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags: "Project=gateway-migration-demo,Controller=envoy-gateway,Environment=demo"
+          
+          # OPTIONAL: EIP allocation IDs for static IPs
+          # Useful if you need consistent IP addresses
+          # service.beta.kubernetes.io/aws-load-balancer-eip-allocations: "eipalloc-xxxxx,eipalloc-yyyyy"
+          
+          # OPTIONAL: IP address type (ipv4 or dualstack)
+          # service.beta.kubernetes.io/aws-load-balancer-ip-address-type: "ipv4"
+          
+          # OPTIONAL: NLB attributes
+          # service.beta.kubernetes.io/aws-load-balancer-attributes: "deletion_protection.enabled=false,load_balancing.cross_zone.enabled=true"
+
+        # OPTIONAL: External traffic policy
+        # - "Cluster" (default): Better load distribution, loses client source IP
+        # - "Local": Preserves client source IP, but uneven distribution
+        # externalTrafficPolicy: Cluster
+
+        # OPTIONAL: Allocate LoadBalancer node ports in a specific range
+        # allocateLoadBalancerNodePorts: true
+
+      # OPTIONAL: Deployment configuration for Envoy proxy pods
+      envoyDeployment:
+        replicas: 2
+        pod:
+          # OPTIONAL: Resource requests and limits
+          # resources:
+          #   requests:
+          #     cpu: 100m
+          #     memory: 128Mi
+          #   limits:
+          #     cpu: 500m
+          #     memory: 512Mi
+          
+          # OPTIONAL: Node selection
+          # nodeSelector:
+          #   workload-type: gateway
+          
+          # OPTIONAL: Tolerations for tainted nodes
+          # tolerations:
+          # - key: "gateway-nodes"
+          #   operator: "Equal"
+          #   value: "true"
+          #   effect: "NoSchedule"
+          
+          # OPTIONAL: Pod anti-affinity for high availability
+          # affinity:
+          #   podAntiAffinity:
+          #     preferredDuringSchedulingIgnoredDuringExecution:
+          #     - weight: 100
+          #       podAffinityTerm:
+          #         labelSelector:
+          #           matchLabels:
+          #             gateway.envoyproxy.io/owning-gateway-name: demo-gateway
+          #         topologyKey: kubernetes.io/hostname
+
+---
+# Integration Notes:
+# 
+# This EnvoyProxy resource must be referenced by the Gateway resource's
+# infrastructure configuration. See demo/40-gateway.yaml for the reference.
+#
+# Key AWS Integration Points:
+# 1. ACM Certificate: Replace PLACEHOLDER_ACM_CERT_ARN with your certificate ARN
+# 2. Subnets: Optionally specify which subnets to use for the NLB
+# 3. Security Groups: Optionally specify security groups for the NLB
+# 4. Health Checks: Customize health check behavior for your workload
+# 5. Access Logs: Enable for debugging and compliance (requires S3 bucket)
+#
+# Troubleshooting:
+# - If NLB doesn't provision, check CloudFormation events in AWS Console
+# - Verify IAM permissions allow ELBv2 operations
+# - Check that subnets have appropriate tags (kubernetes.io/role/elb=1)
+# - Ensure security groups allow required traffic

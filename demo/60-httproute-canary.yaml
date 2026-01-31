@@ -1,0 +1,49 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: bookinfo-canary
+  namespace: demo-gw-migration
+  labels:
+    demo: gateway-migration
+    route-type: canary
+spec:
+  parentRefs:
+  - name: demo-gateway
+  hostnames:
+  - "app.gateway.colinjcodesalot.com"
+  rules:
+  # Route to productpage (entry point remains the same)
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+      headers:
+      - name: X-Canary
+        value: "false"
+        type: Exact
+    filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        add:
+        - name: X-Demo-Edge
+          value: envoy-gateway
+    backendRefs:
+    - name: productpage
+      port: 9080
+  # Internal routing: reviews service with traffic split
+  # Note: This demonstrates the canary concept, but the Bookinfo app's
+  # internal calls from productpage to reviews happen directly.
+  # To fully demonstrate the canary in this architecture, you would
+  # typically use a service mesh or have productpage call through the gateway.
+  # For this demo, we're showing the API syntax for weighted routing.
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /reviews
+    backendRefs:
+    - name: reviews
+      port: 9080
+      weight: 90
+    - name: reviews-v2
+      port: 9080
+      weight: 10

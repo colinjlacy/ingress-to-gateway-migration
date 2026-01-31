@@ -1,0 +1,15 @@
+**/*.terraform
+**/*.terraform.lock.hcl
+**/*.tfstate
+**/*.tfstate.*
+**/*.tfplan
+**/*.tfvars
+**/*.tfvars.json
+**/*.tfvars.yaml
+**/*.tfvars.yml
+**/*.tfvars.json
+**/*.tfvars.yaml
+**/*.tfvars.yml
+**/plan
+.DS_Store
+.idea

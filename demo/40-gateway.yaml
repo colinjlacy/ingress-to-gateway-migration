@@ -1,0 +1,40 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: demo-gateway
+  namespace: demo-gw-migration
+  labels:
+    demo: gateway-migration
+  annotations:
+    # OPTIONAL: Additional AWS-specific annotations can be added here
+    # These will be inherited by the Gateway's resources
+    gateway.envoyproxy.io/custom-annotation: "demo-value"
+spec:
+  gatewayClassName: eg
+  # CRITICAL: Reference the EnvoyProxy configuration that defines NLB settings
+  infrastructure:
+    parametersRef:
+      group: gateway.envoyproxy.io
+      kind: EnvoyProxy
+      name: nlb-proxy-config
+      namespace: envoy-gateway-system
+  listeners:
+  - name: http
+    protocol: HTTP
+    port: 80
+    allowedRoutes:
+      namespaces:
+        from: Same
+  # OPTIONAL: Add HTTPS listener if you want TLS termination in-cluster
+  # Note: For this demo, TLS terminates at NLB using ACM
+  # - name: https
+  #   protocol: HTTPS
+  #   port: 443
+  #   tls:
+  #     mode: Terminate
+  #     certificateRefs:
+  #     - name: gateway-tls-cert
+  #       kind: Secret
+  #   allowedRoutes:
+  #     namespaces:
+  #       from: Same
