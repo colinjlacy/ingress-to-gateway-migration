@@ -45,12 +45,12 @@ spec:
   - host: nginx.colinjcodesalot.com
     http:
       paths:
-      # Version app - for progressive routing demo
+      # Version app v1 - stable/primary
       - path: /version(/|$)(.*)
         pathType: ImplementationSpecific
         backend:
           service:
-            name: version-app
+            name: version-app-v1
             port:
               number: 80
 ---
@@ -84,6 +84,34 @@ spec:
         backend:
           service:
             name: httpbin-protected
+            port:
+              number: 80
+---
+# Canary Ingress - progressive routing to version-app v2
+# This demonstrates weighted traffic splitting (10% to v2, 90% to v1)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: demo-ingress-version-canary
+  namespace: demo-gw-migration
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    # Canary configuration - send 10% of traffic to v2
+    nginx.ingress.kubernetes.io/canary: "true"
+    nginx.ingress.kubernetes.io/canary-weight: "10"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: nginx.colinjcodesalot.com
+    http:
+      paths:
+      # Version app v2 - receives 10% of /version traffic
+      - path: /version(/|$)(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: version-app-v2
             port:
               number: 80
 # Env0yG@teway

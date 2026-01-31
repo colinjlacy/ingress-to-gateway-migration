@@ -172,14 +172,15 @@ spec:
         - name: MYSQL_DATABASE
           value: socksdb
 ---
-# Version App v1 (for progressive routing demo)
+# Version App v1 Service (primary/stable)
 apiVersion: v1
 kind: Service
 metadata:
-  name: version-app
+  name: version-app-v1
   namespace: demo-gw-migration
   labels:
     app: version-app
+    version: v1
 spec:
   ports:
   - port: 80
@@ -187,7 +188,9 @@ spec:
     name: http
   selector:
     app: version-app
+    version: v1
 ---
+# Version App v1 Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -248,7 +251,25 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 5
 ---
-# Version App v2 (for progressive routing demo)
+# Version App v2 Service (canary)
+apiVersion: v1
+kind: Service
+metadata:
+  name: version-app-v2
+  namespace: demo-gw-migration
+  labels:
+    app: version-app
+    version: v2
+spec:
+  ports:
+  - port: 80
+    targetPort: 8080
+    name: http
+  selector:
+    app: version-app
+    version: v2
+---
+# Version App v2 Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
