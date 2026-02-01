@@ -1,0 +1,44 @@
+---
+# Protected Routes with OIDC Authentication
+# This file demonstrates OAuth2/OIDC authentication using oauth2-proxy
+# and Envoy Gateway's SecurityPolicy for external authentication
+
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: httpbin-protected-route
+  namespace: demo-gw-migration
+  labels:
+    demo: gateway-migration
+    access: protected
+    auth: oidc
+spec:
+  parentRefs:
+  - name: demo-gateway
+  
+  hostnames:
+  - "gateway.colinjcodesalot.com"
+  
+  rules:
+  # Protected endpoint - requires OIDC authentication
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /protected
+    backendRefs:
+    - name: httpbin-protected
+      port: 80
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        add:
+        - name: X-Demo-Edge
+          value: envoy-gateway
+        - name: X-Protected
+          value: "true"
+
