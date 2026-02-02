@@ -1,5 +1,5 @@
 ---
-# Public Ingress - no authentication required
+# Public Ingress - no authentication, no rewrite
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -10,16 +10,40 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-connect-timeout: "30"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "30"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "30"
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
     nginx.ingress.kubernetes.io/proxy-buffer-size: "16k"
     nginx.ingress.kubernetes.io/proxy-buffers-number: "4"
 spec:
   ingressClassName: nginx
-  defaultBackend:
-    service:
-      name: public-app
-      port:
-        number: 80
+  rules:
+  - host: nginx.colinjcodesalot.com
+    http:
+      paths:
+      - path: /oauth2
+        pathType: Prefix
+        backend:
+          service:
+            name: oauth2-proxy
+            port:
+              number: 4180
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: public-app
+            port:
+              number: 80
+---
+# Public Ingress with path rewrite
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: demo-ingress-path-rewrite
+  namespace: demo-gw-migration
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: nginx
   rules:
   - host: nginx.colinjcodesalot.com
     http:
@@ -31,16 +55,6 @@ spec:
             name: version-app-v1
             port:
               number: 80
-  - host: nginx.colinjcodesalot.com
-    http:
-      paths:
-      - path: /oauth2
-        pathType: Prefix
-        backend:
-          service:
-            name: oauth2-proxy
-            port:
-              number: 4180
 ---
 # Protected Ingress - OIDC authentication via oauth2-proxy
 apiVersion: networking.k8s.io/v1
@@ -100,4 +114,3 @@ spec:
             name: version-app-v2
             port:
               number: 80
-# Env0yG@teway

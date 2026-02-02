@@ -50,22 +50,3 @@ spec:
           #           matchLabels:
           #             gateway.envoyproxy.io/owning-gateway-name: demo-gateway
           #         topologyKey: kubernetes.io/hostname
-
----
-# Integration Notes:
-# 
-# This EnvoyProxy resource must be referenced by the Gateway resource's
-# infrastructure configuration. See demo/40-gateway.yaml for the reference.
-#
-# Key AWS Integration Points:
-# 1. ACM Certificate: Replace PLACEHOLDER_ACM_CERT_ARN with your certificate ARN
-# 2. Subnets: Optionally specify which subnets to use for the NLB
-# 3. Security Groups: Optionally specify security groups for the NLB
-# 4. Health Checks: Customize health check behavior for your workload
-# 5. Access Logs: Enable for debugging and compliance (requires S3 bucket)
-#
-# Troubleshooting:
-# - If NLB doesn't provision, check CloudFormation events in AWS Console
-# - Verify IAM permissions allow ELBv2 operations
-# - Check that subnets have appropriate tags (kubernetes.io/role/elb=1)
-# - Ensure security groups allow required traffic
