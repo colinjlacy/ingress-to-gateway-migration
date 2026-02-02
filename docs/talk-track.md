@@ -21,7 +21,6 @@
 
 ### Demo Environment
 - **Platform:** Amazon EKS in us-east-2
-- **Application:** Istio Bookinfo (without Istio - just the microservices)
 - **DNS:** Route53 with two hostnames for side-by-side comparison
 - **TLS:** AWS Certificate Manager + Network Load Balancers
 - **Two entry points:**

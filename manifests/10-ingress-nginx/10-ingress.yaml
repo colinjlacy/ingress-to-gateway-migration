@@ -1,16 +1,36 @@
-# OAuth2 Ingress - no authentication, no rewrite
+---
+# Public Ingress - no authentication required
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: demo-ingress-oauth2
+  name: demo-ingress-public
   namespace: demo-gw-migration
   annotations:
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "30"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
     nginx.ingress.kubernetes.io/proxy-buffer-size: "16k"
     nginx.ingress.kubernetes.io/proxy-buffers-number: "4"
 spec:
   ingressClassName: nginx
+  defaultBackend:
+    service:
+      name: public-app
+      port:
+        number: 80
   rules:
+  - host: nginx.colinjcodesalot.com
+    http:
+      paths:
+      - path: /version(/|$)(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: version-app-v1
+            port:
+              number: 80
   - host: nginx.colinjcodesalot.com
     http:
       paths:
@@ -22,38 +42,6 @@ spec:
             port:
               number: 4180
 ---
-# Public Ingress - no authentication required
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: demo-ingress-public
-  namespace: demo-gw-migration
-  annotations:
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
-    nginx.ingress.kubernetes.io/proxy-connect-timeout: "30"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "30"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "30"
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
-spec:
-  ingressClassName: nginx
-  defaultBackend:
-    service:
-      name: httpbin-public
-      port:
-        number: 80
-  rules:
-  - host: nginx.colinjcodesalot.com
-    http:
-      paths:
-      # Version app v1 - stable/primary
-      - path: /version(/|$)(.*)
-        pathType: ImplementationSpecific
-        backend:
-          service:
-            name: version-app-v1
-            port:
-              number: 80
----
 # Protected Ingress - OIDC authentication via oauth2-proxy
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -61,7 +49,7 @@ metadata:
   name: demo-ingress-protected
   namespace: demo-gw-migration
   annotations:
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/proxy-connect-timeout: "30"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "30"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "30"
@@ -78,7 +66,6 @@ spec:
   - host: nginx.colinjcodesalot.com
     http:
       paths:
-      # Protected httpbin - OIDC authentication enforced
       - path: /protected(/|$)(.*)
         pathType: ImplementationSpecific
         backend:
@@ -88,14 +75,13 @@ spec:
               number: 80
 ---
 # Canary Ingress - progressive routing to version-app v2
-# This demonstrates weighted traffic splitting (10% to v2, 90% to v1)
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: demo-ingress-version-canary
   namespace: demo-gw-migration
   annotations:
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/rewrite-target: /$2
     # Canary configuration - send 10% of traffic to v2
     nginx.ingress.kubernetes.io/canary: "true"

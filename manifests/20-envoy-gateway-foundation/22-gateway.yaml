@@ -5,10 +5,6 @@ metadata:
   namespace: demo-gw-migration
   labels:
     demo: gateway-migration
-  annotations:
-    # OPTIONAL: Additional AWS-specific annotations can be added here
-    # These will be inherited by the Gateway's resources
-    gateway.envoyproxy.io/custom-annotation: "demo-value"
 spec:
   gatewayClassName: eg
   listeners:
@@ -21,7 +17,7 @@ spec:
         from: Same
   
   # HTTPS listener (port 443)
-  # NLB terminates TLS using ACM, then forwards as HTTP to Envoy
+  # NLB terminates TLS, then forwards as HTTP to Envoy
   # So this is HTTP protocol, even though external clients use HTTPS
   - name: https
     protocol: HTTP

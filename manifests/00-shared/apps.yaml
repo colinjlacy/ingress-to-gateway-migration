@@ -1,47 +1,40 @@
 ---
-# Demo Applications for Ingress-to-Gateway Migration
-# 1. go-httpbin (public) - shows HTTP request details
-# 2. go-httpbin (protected) - same app, behind OIDC
-# 3. version-app (v1, v2) - demonstrates progressive routing
-# 4. catalogue-db (MySQL) - demonstrates TCP traffic
-
-# go-httpbin - Public (no authentication)
 apiVersion: v1
 kind: Service
 metadata:
-  name: httpbin-public
+  name: public-app
   namespace: demo-gw-migration
   labels:
-    app: httpbin-public
+    app: public-app
 spec:
   ports:
   - port: 80
     targetPort: 8080
     name: http
   selector:
-    app: httpbin-public
+    app: public-app
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: httpbin-public
+  name: public-app
   namespace: demo-gw-migration
   labels:
-    app: httpbin-public
+    app: public-app
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: httpbin-public
+      app: public-app
   template:
     metadata:
       labels:
-        app: httpbin-public
+        app: public-app
         version: v1
     spec:
       containers:
-      - name: httpbin
-        image: mccutchen/go-httpbin:v2.14.0
+      - name: public-app
+        image: ghcr.io/colinjlacy/ingress-to-gateway-migration/public-app:main-e6bd3bd
         ports:
         - containerPort: 8080
         env:

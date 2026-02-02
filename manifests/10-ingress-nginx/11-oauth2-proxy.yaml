@@ -1,15 +1,6 @@
 ---
 # OAuth2 Proxy for Ingress-NGINX OIDC Authentication
-# This proxy sits in front of protected services and handles OIDC flow with AWS Cognito
-# 
-# Before applying, create the secret with your Cognito credentials:
-# 
-# kubectl create secret generic oauth2-proxy \
-#   --from-literal=client-id=YOUR_CLIENT_ID \
-#   --from-literal=client-secret=YOUR_CLIENT_SECRET \
-#   --from-literal=cookie-secret=$(openssl rand -base64 32 | tr -d /=+ | cut -c -32) \
-#   -n demo-gw-migration
-
+# Before applying, create the secret with your Cognito credentials
 apiVersion: v1
 kind: ConfigMap
 metadata:
