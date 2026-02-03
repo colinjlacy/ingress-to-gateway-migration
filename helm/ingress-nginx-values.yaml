@@ -1,31 +1,18 @@
-# Helm values for ingress-nginx on EKS with NLB + ACM TLS
-# 
 # Install command:
 # helm upgrade --install ingress-nginx ingress-nginx \
 #   --repo https://kubernetes.github.io/ingress-nginx \
 #   --namespace ingress-nginx --create-namespace \
-#   --values install/ingress-nginx-values.yaml
-#
-# BEFORE INSTALLING:
-# 1. Replace PLACEHOLDER_ACM_CERT_ARN with your actual ACM certificate ARN
-# 2. Optionally uncomment and configure subnet/security group settings
-# 3. Review resource limits and replica count for your environment
+#   --values helm/ingress-nginx-values.yaml
 
 controller:
-  # IngressClass configuration
   ingressClass: nginx
   ingressClassResource:
     name: nginx
     enabled: true
     default: false
     controllerValue: "k8s.io/ingress-nginx"
-
-  # Service configuration for AWS NLB with ACM TLS
   service:
     type: LoadBalancer
-    
-    # Port configuration for TLS termination at NLB
-    # NLB listens on 443 (HTTPS) and forwards to port 80 (HTTP) on backend
     ports:
       http: 80
       https: 443
@@ -34,125 +21,15 @@ controller:
       https: http
     
     annotations:
-      # ============================================
-      # REQUIRED: Core NLB Configuration
-      # ============================================
-      
-      # Use Network Load Balancer instead of Classic Load Balancer
       service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
-      
-      # Internet-facing load balancer (change to "internal" for private)
       service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
-      
-      # ACM certificate ARN for TLS termination at NLB
-      # PLACEHOLDER - Replace with your actual ACM certificate ARN
       service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "arn:aws:acm:us-east-2:391633600189:certificate/62c55457-4166-492d-81c7-ff41df21e000"
-      
-      # Enable TLS listener on port 443 (NLB frontend)
       service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "443"
-      
-      # Backend protocol - use "http" when terminating TLS at NLB
-      # Traffic is decrypted at NLB and forwarded as HTTP to port 80 on backend
       service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "http"
-      
-      # Enable cross-zone load balancing for better distribution
-      service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
-      
-      # ============================================
-      # OPTIONAL: Network Configuration
-      # ============================================
-      
-      # Specify subnets for the NLB (comma-separated subnet IDs)
-      # Uncomment if you need to control which subnets are used
+      service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"     
       service.beta.kubernetes.io/aws-load-balancer-subnets: "subnet-018fa89cfedb3bbb1,subnet-0331a10307fbf3f5c,subnet-04ec405974e48ab44"
-      
-      # EIP allocation IDs for static IP addresses (requires one per subnet/AZ)
-      # Useful for IP whitelisting and firewall rules
-      # service.beta.kubernetes.io/aws-load-balancer-eip-allocations: "eipalloc-xxxxx,eipalloc-yyyyy"
-      
-      # IP address type (ipv4 or dualstack)
-      # service.beta.kubernetes.io/aws-load-balancer-ip-address-type: "ipv4"
-      
-      # ============================================
-      # OPTIONAL: Security Configuration
-      # ============================================
-      
-      # Security groups for the NLB (comma-separated)
-      # Uncomment if you need specific security group control
-      # service.beta.kubernetes.io/aws-load-balancer-security-groups: "sg-xxxxx,sg-yyyyy"
-      
-      # Control automatic security group rule management
-      # Set to "false" if you manage SG rules manually
-      # service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules: "true"
-      
-      # ============================================
-      # OPTIONAL: Health Check Configuration
-      # ============================================
-      
-      # Health check protocol
-      # service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: "HTTP"
-      
-      # Health check port (ingress-nginx default is 10254 for /healthz)
-      # service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: "10254"
-      
-      # Health check path
-      # service.beta.kubernetes.io/aws-load-balancer-healthcheck-path: "/healthz"
-      
-      # Health check interval in seconds
-      # service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval: "10"
-      
-      # Health check timeout in seconds
-      # service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout: "5"
-      
-      # Healthy threshold (consecutive successes)
-      # service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold: "2"
-      
-      # Unhealthy threshold (consecutive failures)
-      # service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold: "2"
-      
-      # ============================================
-      # OPTIONAL: Target Group Configuration
-      # ============================================
-      
-      # Target group attributes (comma-separated key=value pairs)
-      # Useful for connection draining and stickiness
-      # service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: "deregistration_delay.timeout_seconds=30,stickiness.enabled=true,stickiness.type=source_ip"
-      
-      # Target type (instance or ip)
-      # "instance" uses node IPs, "ip" uses pod IPs (requires VPC CNI)
-      # service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "instance"
-      
-      # ============================================
-      # OPTIONAL: Observability
-      # ============================================
-      
-      # Enable access logs (requires S3 bucket)
-      # service.beta.kubernetes.io/aws-load-balancer-access-log-enabled: "true"
-      # service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-name: "my-nlb-logs-bucket"
-      # service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-prefix: "ingress-nginx"
-      
-      # Resource tags for cost allocation and organization
       service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags: "Project=gateway-migration-demo,Controller=ingress-nginx,Environment=demo,CostCenter=engineering"
-      
-      # ============================================
-      # OPTIONAL: Advanced NLB Attributes
-      # ============================================
-      
-      # NLB-level attributes (comma-separated)
-      # service.beta.kubernetes.io/aws-load-balancer-attributes: "deletion_protection.enabled=false,load_balancing.cross_zone.enabled=true"
-
-    # External traffic policy
-    # - "Cluster" (default): Better load distribution, loses client source IP, registers ALL nodes as targets
-    # - "Local": Preserves client source IP, only registers nodes with pods as targets
     externalTrafficPolicy: Local
-    
-    # OPTIONAL: Session affinity for sticky sessions
-    # sessionAffinity: ClientIP
-    # sessionAffinityConfig:
-    #   clientIP:
-    #     timeoutSeconds: 10800
-
-  # Resource requests and limits for controller pods
   resources:
     requests:
       cpu: 100m
@@ -164,36 +41,15 @@ controller:
   # Replica count for high availability
   replicaCount: 2
 
-  # OPTIONAL: Node selector for dedicated nodes
-  # nodeSelector:
-  #   workload-type: ingress
-  
-  # OPTIONAL: Tolerations for tainted nodes
-  # tolerations:
-  # - key: "ingress-nodes"
-  #   operator: "Equal"
-  #   value: "true"
-  #   effect: "NoSchedule"
-  
-  # OPTIONAL: Priority class for pod scheduling
-  # priorityClassName: system-cluster-critical
-  
   # ConfigMap entries for TLS termination at NLB
   config:
-    # NLBs operate at Layer 4 and don't add X-Forwarded-Proto headers
-    # Since ALL traffic comes through NLB with TLS termination,
-    # force nginx to always use https scheme
     use-proxy-protocol: "false"
-    # Disable SSL redirects since we're already on HTTPS  
     force-ssl-redirect: "false"
     ssl-redirect: "false"
-    # Increase buffer sizes for large cookies/headers (OAuth2 tokens)
     proxy-buffer-size: "16k"
     proxy-buffers-number: "4"
     client-header-buffer-size: "16k"
     large-client-header-buffers: "4 16k"
-    # Force the scheme to always be https for all forwarded headers
-    # This overrides nginx's detection of the incoming scheme
     http-snippet: |
       map $http_x_forwarded_proto $pass_access_scheme {
         default "https";
@@ -201,8 +57,6 @@ controller:
       map $http_x_forwarded_proto $pass_port {
         default "443";
       }
-
-
 # TCP services configuration for non-HTTP traffic
 # Expose MySQL database on external port 3306
 tcp:
