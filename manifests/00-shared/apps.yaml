@@ -33,7 +33,7 @@ spec:
     spec:
       containers:
       - name: public-app
-        image: ghcr.io/colinjlacy/ingress-to-gateway-migration/public-app:main-e6bd3bd
+        image: ghcr.io/colinjlacy/ingress-to-gateway-migration/public-app:main-1dcc519
         ports:
         - containerPort: 80
         env:
