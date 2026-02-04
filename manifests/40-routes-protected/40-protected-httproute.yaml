@@ -2,7 +2,6 @@
 # Protected Routes with OIDC Authentication
 # Demonstrates OAuth2/OIDC authentication using
 # Envoy Gateway's native OIDC support via SecurityPolicy.
-
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -15,12 +14,9 @@ metadata:
 spec:
   parentRefs:
   - name: demo-gateway
-  
   hostnames:
   - "gateway.colinjcodesalot.com"
-  
   rules:
-  # Protected endpoint - requires OIDC authentication
   - matches:
     - path:
         type: PathPrefix
@@ -34,9 +30,5 @@ spec:
         path:
           type: ReplacePrefixMatch
           replacePrefixMatch: /
-    - type: RequestHeaderModifier
-      requestHeaderModifier:
-        add:
-        - name: X-Demo-Edge
-          value: envoy-gateway
+
 

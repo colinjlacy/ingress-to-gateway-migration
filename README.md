@@ -19,9 +19,6 @@ OpenTofu/Terraform configuration for provisioning an EKS cluster with required a
 ### `/apps`
 Source code for demo applications. Contains a simple Go HTTP server (version-app) that returns version information for canary deployment testing.
 
-### `/docs`
-Supporting documentation including AWS integration guides, quick reference materials, and presentation notes.
-
 ## Prerequisites (Out of Scope)
 
 This demo requires infrastructure components that must be configured outside this repository:

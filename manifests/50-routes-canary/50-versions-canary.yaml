@@ -12,10 +12,8 @@ metadata:
 spec:
   parentRefs:
   - name: demo-gateway
-  
   hostnames:
   - "gateway.colinjcodesalot.com"
-  
   rules:
   - matches:
     - path:
@@ -36,12 +34,4 @@ spec:
         path:
           type: ReplacePrefixMatch
           replacePrefixMatch: /
-    - type: RequestHeaderModifier
-      requestHeaderModifier:
-        add:
-        - name: X-Demo-Edge
-          value: envoy-gateway
-        - name: X-Canary-Enabled
-          value: "true"
-        - name: X-Canary-Weight
-          value: "10"
+

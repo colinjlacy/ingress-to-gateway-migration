@@ -1,12 +1,10 @@
 ---
 # SecurityPolicy for OIDC Authentication
-
 # To get the required values from OpenTofu:
 #   cd eks-setup/tofu-eks/
 #   export COGNITO_ISSUER=$(tofu output -raw cognito_issuer_url)
 #   export CLIENT_ID=$(tofu output -raw cognito_envoy_gateway_client_id)
 #   export CLIENT_SECRET=$(tofu output -raw cognito_envoy_gateway_client_secret)
-
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy
 metadata:
@@ -20,15 +18,12 @@ spec:
     group: gateway.networking.k8s.io
     kind: HTTPRoute
     name: httpbin-protected-route
-  
   oidc:
     provider:
       # AWS Cognito issuer URL
       issuer: "https://cognito-idp.us-east-2.amazonaws.com/us-east-2_fBzGKIfpN"
-
     # Cognito App Client ID for Envoy Gateway
     clientID: "7e7hp6jpp79nv23r0tbsh864bt"
-    
     # Kubernetes secret containing the client secret
     clientSecret:
       name: envoy-gateway-oidc-client-secret

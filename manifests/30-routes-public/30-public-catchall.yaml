@@ -12,10 +12,8 @@ metadata:
 spec:
   parentRefs:
   - name: demo-gateway
-  
   hostnames:
   - "gateway.colinjcodesalot.com"
-  
   rules:
   - matches:
     - path:
@@ -24,3 +22,7 @@ spec:
     backendRefs:
     - name: public-app
       port: 80
+    timeouts: 
+      request: 30s
+      backendRequest: 30s
+    

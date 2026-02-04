@@ -13,7 +13,6 @@ spec:
   parentRefs:
   - name: demo-gateway
     sectionName: mysql
-  
   rules:
   - backendRefs:
     - name: catalogue-db
